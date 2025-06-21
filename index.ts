@@ -425,8 +425,16 @@ interface Adult {
 }
 
 // Напишите функцию mapAndFilter здесь. Используйте два параметра Generic: T для типа входных данных и U для типа выходных данных.
-function mapAndFilter(items, transform, filter) {
-  // Ваш код здесь
+function mapAndFilter<T, U>(
+  items: Array<T>,
+  transform: (item: T) => U,
+  filter: (transformedItem: U) => boolean
+): Array<U> {
+  const transformedItems = items.map(transform);
+  
+  const filteredItems = transformedItems.filter(filter);
+  
+  return filteredItems;
 }
 
 // Пример данных
@@ -447,10 +455,99 @@ const adults: Adult[] = mapAndFilter(
 console.log(adults);
 
 //Вопросы после реализации:
-// Как изменится функция, если необходимо добавить возможность изменения критерия сортировки?
-// Могут ли типы T и U быть полностью разными или должны иметь общие характеристики? Объясните ваш ответ.
+// Как изменится функция, если необходимо добавить возможность изменения критерия сортировки? 
+// Можно добавить еще один входной параметр, в который будет передаваться функция сортировки, и применять ее к результату функции перед выходом
+// Могут ли типы T и U быть полностью разными или должны иметь общие характеристики? Да, они могут быть разными, только с ограничением, что функция transform должна смочь конвертировать T в U
+
 
 //---------------------------------------------------------------------------------
 
 
 
+//---------------------------------------------------------------------------------
+// Задание 9:
+
+type DeepReadonly<T> = T extends Function 
+  ? T 
+  : T extends Array<infer U> 
+    ? ReadonlyArray<DeepReadonly<U>> 
+    : T extends object 
+      ? { readonly [K in keyof T]: DeepReadonly<T[K]> } 
+      : T;
+
+//Прмер:
+type User = {
+  name: string;
+  address: {
+    city: string;
+    street: string;
+  };
+  hobbies: string[];
+};
+
+type DeepReadonlyUser = DeepReadonly<User>;
+
+const readonlyUser: DeepReadonlyUser = {
+  name: "Alice",
+  address: {
+    city: "Wonderland",
+    street: "Main"
+  },
+  hobbies: ["reading", "coding"],
+  sayHello: () => console.log("Hi!")
+};
+
+readonlyUser.name = "James";  // Ошибка, потому что только readonly
+
+
+
+//---------------------------------------------------------------------------------
+//Задание 10:
+
+// Написать тип для преобразования методов класса в Promise-версии
+type Promisify<T> = {
+  [K in keyof T]: T[K] extends (...args: infer Args) => infer Return
+    ? (...args: Args) => Promise<Return>
+    : T[K];
+};
+
+class UserService {
+  getUser(id: number): User { return {} as User; }
+  saveUser(user: User): void {}
+  version: string = "1.0";
+}
+
+type AsyncUserService = Promisify<UserService>;
+/* 
+Результат:
+{
+  getUser(id: number): Promise<User>;
+  saveUser(user: User): Promise<void>;
+  version: string;
+}
+*/
+
+
+//---------------------------------------------------------------------------------
+//Задание 11:
+
+// Условие задачи
+// Реализуйте тип Awaited<T>, который:
+// Раскрывает тип значения, обёрнутого в Promise (аналогично встроенному Awaited в TypeScript 4.5+).
+// Обрабатывает вложенные Promise (например, Promise<Promise<string>> → string).
+
+// Не раскрывает другие типы (например, Array<Promise<string>> остаётся Array<Promise<string>>).
+// Подсказки: почитайте про infer, extends и conditional types
+
+type AwaitedMy<T> = T extends Promise<infer U> 
+  ? AwaitedMy<U>  // Рекурсивно раскрываем вложенные Promise
+  : T;           // Если не Promise, возвращаем как есть
+
+// Пример использования:
+type Example1 = AwaitedMy<Promise<string>>;         // string
+type Example2 = AwaitedMy<Promise<Promise<number>>>; // number
+type Example3 = AwaitedMy<boolean>;                // boolean (не Promise)
+type Example4 = AwaitedMy<Array<Promise<string>>>; // Array<Promise<string>> (без изменений)
+
+const test1: Awaited<Promise<string>> = "text";
+const test2: Awaited<Promise<string>> = 123; // ошибка типов
